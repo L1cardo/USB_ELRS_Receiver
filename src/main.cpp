@@ -89,14 +89,6 @@ uint8_t const desc_hid_report[] = {
     TUD_HID_REPORT_DESC_GAMEPAD_9()  // USB GamePad data structure
 };
 
-// Define CRSF serial port based on board type
-#ifdef ARDUINO_RASPBERRY_PI_PICO
-  #define CRSF_SERIAL Serial2
-  #define LED_PIN 25
-#else
-  #define CRSF_SERIAL Serial1
-  #define LED_PIN 13
-#endif
 
 typedef struct __attribute__((packed)) gamepad_data {
   uint16_t ch[8];  // 16 bit 8ch
@@ -149,7 +141,7 @@ void setup()
 
   // Initialize LED pin
   pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, LOW);
+  digitalWrite(LED_PIN, LED_OFF);
   lastDataAvailable = millis();
   lastLedToggle = millis();
 
@@ -286,14 +278,14 @@ void debug_out()
 // LED status update function
 void updateLed()
 {
-  static bool ledState = LOW;
+  static bool ledState = LED_OFF;
   uint32_t currentTime = millis();
   uint32_t timeSinceLastData = currentTime - lastDataAvailable;
 
   // If we have recent CRSF data (within last 100ms), connection is active
   if (timeSinceLastData < 100) {
     // Connected - LED solid ON
-    ledState = HIGH;
+    ledState = LED_ON;
   } else if (timeSinceLastData < CONNECTION_TIMEOUT) {
     // Disconnected but within timeout - blink LED every 500ms
     if (currentTime - lastLedToggle < LED_BLINK_INTERVAL) return;
@@ -301,7 +293,7 @@ void updateLed()
     ledState = !ledState;
   } else {
     // Disconnected for more than 60 seconds - turn LED OFF
-    ledState = LOW;
+    ledState = LED_OFF;
   }
 
   digitalWrite(LED_PIN, ledState);
