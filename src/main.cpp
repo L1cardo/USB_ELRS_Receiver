@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <Adafruit_TinyUSB.h> 
+#include <Adafruit_TinyUSB.h>
 
 // Board name
 #define MANUFACTURER_NAME "USB_ELRS_Receiver"
@@ -13,13 +13,12 @@
 // LED connection status variables
 uint32_t lastDataAvailable = 0;  // Last time CRSF_SERIAL.available() was true
 uint32_t lastLedToggle = 0;      // Last time LED was toggled
-bool ledState = LOW;             // Current LED state
 
 #define LED_BLINK_INTERVAL 500    // LED blink interval when disconnected (ms)
 #define CONNECTION_TIMEOUT 60000  // Time to wait before turning off LED completely (ms)
 
 // USB HID report descriptor
-// Specifies the structure of the gamepad data (for radio receiver 
+// Specifies the structure of the gamepad data (for radio receiver
 // (16bit data x 8ch) + (1bit data x 8ch))
 #define TUD_HID_REPORT_DESC_GAMEPAD_9(...)                                    \
   HID_USAGE_PAGE(HID_USAGE_PAGE_DESKTOP),                                     \
@@ -38,7 +37,7 @@ bool ledState = LOW;             // Current LED state
       HID_USAGE_MAX(8), HID_LOGICAL_MIN(0), HID_LOGICAL_MAX(1),               \
       HID_REPORT_COUNT(8), HID_REPORT_SIZE(1),                                \
       HID_INPUT(HID_DATA | HID_VARIABLE | HID_ABSOLUTE),                      \
-      HID_COLLECTION_END  
+      HID_COLLECTION_END
 
 typedef enum {
   CRSF_ADDRESS_BROADCAST = 0x00,
@@ -151,6 +150,8 @@ void setup()
   // Initialize LED pin
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
+  lastDataAvailable = millis();
+  lastLedToggle = millis();
 
 #if defined(DEBUG)
   time_m = micros();  // For interval measurement
@@ -285,29 +286,23 @@ void debug_out()
 // LED status update function
 void updateLed()
 {
+  static bool ledState = LOW;
   uint32_t currentTime = millis();
   uint32_t timeSinceLastData = currentTime - lastDataAvailable;
 
   // If we have recent CRSF data (within last 100ms), connection is active
   if (timeSinceLastData < 100) {
     // Connected - LED solid ON
-    digitalWrite(LED_PIN, HIGH);
     ledState = HIGH;
-  } else if (timeSinceLastData < CONNECTION_TIMEOUT) { // If disconnected but within 60 seconds, blink LED
-    // Blink LED every 500ms
-    if (currentTime - lastLedToggle >= LED_BLINK_INTERVAL) {
-      ledState = !ledState;
-      digitalWrite(LED_PIN, ledState);
-      lastLedToggle = currentTime;
-    }
-  } else { // If disconnected for more than 60 seconds, turn LED OFF
-    digitalWrite(LED_PIN, LOW);
+  } else if (timeSinceLastData < CONNECTION_TIMEOUT) {
+    // Disconnected but within timeout - blink LED every 500ms
+    if (currentTime - lastLedToggle < LED_BLINK_INTERVAL) return;
+    lastLedToggle = currentTime;
+    ledState = !ledState;
+  } else {
+    // Disconnected for more than 60 seconds - turn LED OFF
     ledState = LOW;
   }
 
-  // Initialize lastDataAvailable on first run
-  if (lastDataAvailable == 0) {
-    lastDataAvailable = currentTime;
-    lastLedToggle = currentTime;
-  }
+  digitalWrite(LED_PIN, ledState);
 }
